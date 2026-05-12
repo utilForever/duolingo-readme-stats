@@ -1,9 +1,6 @@
 # Architecture
 
-`duolingo-readme-stats` is a renderer-first project architecture for generating
-README-ready Duolingo SVG cards. The design centers on two hard requirements:
-**(1)** provide SVG image output, and **(2)** provide different SVG visuals by
-Duolingo league, while keeping a **1-hour synchronization cadence** in metadata.
+`duolingo-readme-stats` is a renderer-first project architecture for generating README-ready Duolingo SVG cards. The design centers on two hard requirements: **(1)** provide SVG image output, and **(2)** provide different SVG visuals by Duolingo league, while keeping a **1-hour synchronization cadence** in metadata.
 
 ## Visual overview
 
@@ -39,32 +36,30 @@ flowchart LR
 | `svg-builder`        | Emits final XML/SVG with defs, style blocks, and content layers                            | all rendering modules                            |
 | `error-renderer`     | Produces fallback error SVG for invalid or unavailable data                                | `renderer-facade`                                |
 
+## Technology stack selection
+
+| Area                 | Selection                                                                     | Why this fits the architecture                                                                          |
+| -------------------- | ----------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------- |
+| Language/runtime     | TypeScript 5 on Node.js 22 LTS                                                | Strong typed contracts for renderer modules and stable LTS runtime for deployment.                      |
+| API framework        | Fastify                                                                       | Lightweight request/response path for renderer endpoint and clean plugin model for future extension.    |
+| Validation library   | Zod                                                                           | Runtime-safe validation for normalized profile input and renderer options before SVG assembly.          |
+| SVG output strategy  | Native SVG string composition in `svg-builder` (no heavyweight SVG framework) | Keeps deterministic output control and aligns with the existing `svg-builder` module boundary.          |
+| Deployment/scheduler | Vercel serverless deployment + Vercel Cron (hourly)                           | Matches the explicit 1-hour sync cadence requirement and keeps scheduled refresh infrastructure simple. |
+
+The selected stack intentionally keeps style-token mapping and sync-cadence policy in dedicated modules rather than framework-specific code paths.
+
 ## Reference-informed design choices
 
 This architecture is intentionally informed by:
 
-1. `anuraghazra/github-readme-stats`
-2. `centrumek/duolingo-readme-stats`
-
-### Adopted patterns from `github-readme-stats`
-
 - **Renderer endpoint contract**: request-in, SVG-out architecture.
-- **Theme/token strategy**: use style tokens and variants rather than one
-  monolithic hardcoded SVG template.
-- **Composable card sections**: consistent section composition for header,
-  metrics, and supporting detail layers.
-- **Error SVG fallback**: keep output format stable by returning SVG even on
-  error paths.
-
-### Adopted patterns from `duolingo-readme-stats`
-
-- **Duolingo-specific metric focus**: streak, total XP, weekly XP, league, and
-  language XP distribution.
-- **League progression ordering**: Bronze -> Silver -> Gold -> Sapphire -> Ruby
-  -> Emerald -> Amethyst -> Pearl -> Obsidian -> Diamond.
+- **Theme/token strategy**: use style tokens and variants rather than one monolithic hardcoded SVG template.
+- **Composable card sections**: consistent section composition for header, metrics, and supporting detail layers.
+- **Error SVG fallback**: keep output format stable by returning SVG even on error paths.
+- **Duolingo-specific metric focus**: streak, total XP, weekly XP, league, and language XP distribution.
+- **League progression ordering**: Bronze -> Silver -> Gold -> Sapphire -> Ruby -> Emerald -> Amethyst -> Pearl -> Obsidian -> Diamond.
 - **Weekly XP semantics**: treat weekly XP as a time-windowed metric.
-- **Language list presentation**: sort language entries by XP contribution for
-  renderer readability.
+- **Language list presentation**: sort language entries by XP contribution for renderer readability.
 
 ## Runtime flow (renderer mode)
 
@@ -125,22 +120,17 @@ as **reference assumptions** and keep league mapping configurable.
 
 ## Renderer implications from Duolingo mechanics
 
-- Since ranking is XP-centric, card emphasis should prioritize total XP and
-  weekly XP visibility.
-- Since league identity is a visible progression signal, style variation by
-  league must be visually obvious even before reading text.
-- Since leaderboard timing is periodic, freshness metadata (`syncedAt`,
-  `nextSyncAt`) must remain explicit in the card.
+- Since ranking is XP-centric, card emphasis should prioritize total XP and weekly XP visibility.
+- Since league identity is a visible progression signal, style variation by league must be visually obvious even before reading text.
+- Since leaderboard timing is periodic, freshness metadata (`syncedAt`, `nextSyncAt`) must remain explicit in the card.
 
 ## Visibility rules
 
-- Keep renderer entry contract stable: one normalized input model in, one SVG
-  document out.
+- Keep renderer entry contract stable: one normalized input model in, one SVG document out.
 - Keep business metrics and visual tokens separated:
   - metrics (`streak`, `xp`, etc.) do not decide geometry
   - league style tokens decide presentation only
-- Expose only a minimal public renderer facade; keep variant/geometry internals
-  private to avoid style drift.
+- Expose only a minimal public renderer facade; keep variant/geometry internals private to avoid style drift.
 - Always keep a fallback style path for null/unknown league values.
 
 ## File conventions
